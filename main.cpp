@@ -42,7 +42,6 @@ void applyPatches(libhack_handle *handle, DWORD64 modAddr)
     addresses.push_back(make_pair<DWORD64,int>(modAddr + 0x12bab25, 3));
     addresses.push_back(make_pair<DWORD64,int>(modAddr + 0x12bab36, 6));
     addresses.push_back(make_pair<DWORD64, int>(modAddr + 0xb843a7, 3));
-	//addresses.push_back(make_pair<DWORD64, int>(modAddr + 0xb9e77c, 6)); // função que escreve na quantidade de dinheiro
 
 	auto calculate_money_address = [&]() -> __int64 {
 		const int offsets[] = {0x18, 0x0, 0x150, 0xa0, 0x70, 0xd30, 0x5b8};
@@ -51,44 +50,40 @@ void applyPatches(libhack_handle *handle, DWORD64 modAddr)
 		// calculates money address
 		for(const auto& offset : offsets) {
 			auto x = libhack_read_int64_from_addr64(handle, address);
-			address = x + offset; 
+			address = x + offset;
 		}
-		
+
 		return address;
 	};
-	
+
 	__int64 money_addr = calculate_money_address();
-	
+
 	cout << "money is at: " << money_addr << endl;
-	
+
     for_each(addresses.begin(), addresses.end(), [&](const pair<DWORD64,int>& p) {
 		int bytes_written = 0;
 
         cout << "Writing shellcode at address " << p.first << endl;
-		
+
 		if(p.second == 3) {
 			bytes_written = libhack_write_string_to_addr64(handle, p.first, reinterpret_cast<const char *>(sc1), p.second);
 		} else if(p.second == 6) {
 			bytes_written = libhack_write_string_to_addr64(handle, p.first, reinterpret_cast<const char*>(sc2), p.second);
-		} else if(p.second == 0) {
-			for(;;) {
-				libhack_write_int_to_addr64(handle, p.first, 500000);
-			}
 		}
-		
+
 		if(bytes_written <= 0) {
 			cout << "Failed to patch address " << p.first << endl;
 			failures++;
 		}
     });
-	
+
 	if(failures == addresses.size()) {
 		cout << "We failed to apply all patches :(" << endl;
 	} else {
 		cout << dec;
 		cout << "Patches applied: " << addresses.size() - failures << endl;
 	}
-	
+
 	cout << "Patching player money ..." << endl;
 	for(;;) {
 		libhack_write_int_to_addr64(handle, money_addr, player_money);
@@ -114,7 +109,7 @@ int main()
 
     cout << "Far cry is running: " << lh->bProcessIsOpen << endl;
     this_thread::sleep_for(chrono::seconds(5));
-    
+
     cout << "Trying to get address of " << MODULE_NAME << endl;
 
     // calcula os offsets
@@ -135,8 +130,8 @@ int main()
         cout << "Address of " << MODULE_NAME << ": " << hex << addr32 << endl;
         addr = static_cast<DWORD64>(addr32);
     }
-    
-    cout << "Address of" << MODULE_NAME << ": " << hex << addr << endl;
+
+    cout << "Address of " << MODULE_NAME << ": " << hex << addr << endl;
 
     applyPatches(lh, addr);
 
