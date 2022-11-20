@@ -37,7 +37,7 @@ void applyPatches(libhack_handle *handle, DWORD64 modAddr)
     unsigned char *sc2 = generate_shellcode(6);
     vector<pair<DWORD64,int>> addresses = vector<pair<DWORD64,int>>();
 	size_t failures = 0;
-	const int player_money = 950000;
+	const int player_money = 1200000;
 
     addresses.push_back(make_pair<DWORD64,int>(modAddr + 0x12bab25, 3));
     addresses.push_back(make_pair<DWORD64,int>(modAddr + 0x12bab36, 6));
@@ -55,6 +55,36 @@ void applyPatches(libhack_handle *handle, DWORD64 modAddr)
 
 		return address;
 	};
+
+    auto farcry_scene_is_loaded = [&]() -> bool {
+        const DWORD64 gameIsLoadedAddr = modAddr + 0x2d226d0;
+        bool bGameIsLoaded = false;
+
+        int value = libhack_read_int_from_addr64(handle, gameIsLoadedAddr);
+        if(value == 1) {
+            cout << "FarCry scene has been loaded" << endl;
+            bGameIsLoaded = true;
+        }
+
+        this_thread::sleep_for(chrono::seconds(5));
+
+        return bGameIsLoaded;
+    };
+
+    auto wait_farcry_scene_load = [&]() {
+        while(!farcry_scene_is_loaded()) {
+            this_thread::sleep_for(chrono::seconds(3));
+        }
+
+        this_thread::sleep_for(chrono::seconds(3));
+    };
+
+
+    cout << "Waiting for scene to be loaded" << endl;
+
+    wait_farcry_scene_load();
+
+    cout << "FarCry scene has been loaded" << endl;
 
 	__int64 money_addr = calculate_money_address();
 
@@ -85,10 +115,12 @@ void applyPatches(libhack_handle *handle, DWORD64 modAddr)
 	}
 
 	cout << "Patching player money ..." << endl;
-	for(;;) {
+	while(farcry_scene_is_loaded()) {
 		libhack_write_int_to_addr64(handle, money_addr, player_money);
 		this_thread::sleep_for(chrono::seconds(5));
 	}
+
+    cout << "Game completed" << endl;
 }
 
 int main()
@@ -134,6 +166,8 @@ int main()
     cout << "Address of " << MODULE_NAME << ": " << hex << addr << endl;
 
     applyPatches(lh, addr);
+    libhack_free(lh);
+    cout << "Hacking completed :)" << endl;
 
     return 0;
 }
